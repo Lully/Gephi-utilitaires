@@ -1,0 +1,83 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xsl:stylesheet xmlns:xsl="http://www.w3.org/1999/XSL/Transform" version="2.0">
+
+<!--En entrée, un fichier XHTML contenant un tableau de données
+avec à l'intérieur des nombres
+(mesure de corrélation entre deux séries de valeurs)
+La feuille XSL génère un fichier GEXF en considérant que les en-têtes de colonnes et de ligne sont des noeuds
+et que chaque cellule est un lien (edge) dont le poids est la valeur de la cellule.
+Quand le contenu de la cellule n'est pas numérique, quand il est négatif ou égal à 0, ça ne génère aucun lien-->
+
+  <xsl:output method="xml" indent="yes"/>
+  
+  <xsl:param name="defaultedgetype">undirected</xsl:param>
+  <xsl:param name="timeformat"></xsl:param>
+  <xsl:param name="mode">static</xsl:param>
+  <xsl:param name="creator">Lully</xsl:param>
+  <xsl:param name="lastmodified"><xsl:value-of select="substring(string(current-date()),0,11)"/></xsl:param>
+  <xsl:param name="description"/>
+  
+  <xsl:template name="metas">
+    <meta lastmodified="{$lastmodified}">
+      <creator><xsl:value-of select="$creator"/></creator>
+      <description><xsl:value-of select="$description"/></description>
+    </meta>
+  </xsl:template>
+
+  <xsl:template match="/">
+  <!--Définition des noeuds-->
+    <xsl:variable name="nodes">
+      <nodes>
+      <!--Chaque en-tête de colonne est un noeud-->
+        <xsl:for-each select="//tr[1]/td[position() &gt; 1]">
+          <node>
+            <xsl:attribute name="id">
+              <xsl:value-of select="concat('col',position())"/>
+            </xsl:attribute>
+            <xsl:attribute name="label">
+              <xsl:value-of select="normalize-space(.)"/>
+            </xsl:attribute>
+          </node>
+        </xsl:for-each>
+        <!--Chaque en-tête de ligne est un noeud-->
+        <xsl:for-each select="//tr[position() &gt; 1]//td[1]">
+          <node>
+            <xsl:attribute name="id">
+              <xsl:value-of select="concat('row',position())"/>
+            </xsl:attribute>
+            <xsl:attribute name="label">
+              <xsl:value-of select="normalize-space(.)"/>
+            </xsl:attribute>
+          </node>
+        </xsl:for-each>
+      </nodes>
+     </xsl:variable>
+      <!--Définition des liens-->
+      <xsl:variable name="edges">
+          <edges>
+            <xsl:for-each select="//tr[position() &gt; 1]">
+                <xsl:variable name="row" select="concat('row', position())"/>
+                      <xsl:for-each select="td[position() &gt; 1]">
+                        <xsl:variable name="value" select="normalize-space(.)"/>
+                        <xsl:if test="string($value) != '0' and string($value) != '' and floor(number($value))=number($value) and number($value) &gt; 0">
+                        <xsl:variable name="col" select="concat('col', position())"/>
+                          <edge id="{concat($col,$row)}" source="{$col}" target="{$row}" weight="{$value}">
+                            <!--attvalues>
+                                <attvalue for="weight" value="{.}"/>
+                            </attvalues-->
+                          </edge>
+                          </xsl:if>
+                      </xsl:for-each>
+            </xsl:for-each>
+          </edges>
+    </xsl:variable>
+    
+    <gexf version="1.1">
+      <xsl:call-template name="metas"/>
+      <graph defaultedgetype="{$defaultedgetype}" mode="{$mode}"><xsl:if test="$timeformat !=''"><xsl:attribute name="timeformat"><xsl:value-of select="$timeformat"/></xsl:attribute></xsl:if>
+          <xsl:copy-of select="$nodes"/>
+          <xsl:copy-of select="$edges"/>
+      </graph>
+    </gexf>
+  </xsl:template>
+</xsl:stylesheet>
